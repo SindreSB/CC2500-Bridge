@@ -39,7 +39,14 @@ uint8_t oldPacket[40];
 static const int NUM_CHANNELS = 4;
 static uint8_t nChannels[NUM_CHANNELS] = { 0, 100, 199, 209 };
 int8_t fOffset[NUM_CHANNELS] = {0xe4, 0xe3, 0xe2, 0xe2};
-const int GDO0_PIN = D1;     // the number of the GDO0_PIN pin
+
+/*
+SCLK: D5
+MISO: D6
+MOSI: D7
+CSn : D8
+*/
+const int GDO0_PIN = D0;     // the number of the GDO0_PIN pin
 
 CC2500 cc2500;
 
@@ -54,6 +61,9 @@ void setup()
   
   pinMode(GDO0_PIN, INPUT);
   cc2500.init();
+
+  Serial.print("Version: ");
+  Serial.println((int) cc2500.ReadStatusReg(REG_VERSION));
   
   memset(&packet, 0, sizeof(packet));
 }
@@ -168,8 +178,8 @@ long RxData_RF(void)
             else
               Serial.println(((int)Pkt.RSSI / 2 - 73), DEC);
             
-            // Serial.printf("Raw: %X\n", Pkt.raw);
-            // Serial.printf("Filtered: %X\n", Pkt.filtered);
+            Serial.printf("Raw: %X\n", Pkt.raw);
+            Serial.printf("Filtered: %X\n", Pkt.filtered);
             convertFloat();
             freqest = cc2500.ReadStatusReg(REG_FREQEST);            
             fOffset[channel] += freqest;            

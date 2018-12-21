@@ -24,6 +24,7 @@
  */
  
 #include "CC2500.h"
+#include "cc2500_REG.h"
 #include "Arduino.h"
 
 #include <SPI.h>
