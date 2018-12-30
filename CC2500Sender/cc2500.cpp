@@ -154,6 +154,21 @@ void CC2500::ReadBurstReg(unsigned char addr, unsigned char *buffer, int count)
   digitalWrite(SS, HIGH);
 }// ReadBurstReg
 
+void CC2500::WriteBurstReg(unsigned char addr, unsigned char *buffer, int count){
+  addr = addr | CC2500_OFF_WRITE_BURST;
+
+  digitalWrite(SS, LOW);      // Initiate SPI transfer
+  while (digitalRead(MISO) == HIGH);
+
+  char x = SPI.transfer(addr);
+  //Does not need delay( between address and data due to sufficiently slow clock)
+  for (int i = 0; i < count; i++) {
+    x = SPI.transfer(buffer[i]);
+  }
+
+  digitalWrite(SS, HIGH);
+}
+
 
 // For status/strobe addresses, the BURST bit selects between status registers
 // and command strobes.

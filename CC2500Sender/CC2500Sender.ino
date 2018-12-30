@@ -9,7 +9,18 @@
 #include <stdio.h>
 #include <math.h>
 
+//#define WEMOS
+
+#ifdef WEMOS
 #include <ESP8266WiFi.h>
+#endif
+
+// Interval between each transmission sequence (ms)
+#define SEND_INTERVAL 10 * 1000 
+// Interval between transmissions of different channels (ms)
+#define CHANNEL_INTERVAL 100
+// How many channels to use
+#define CHANNEL_NUM 4
 
 long rawcount1 = 0;
 long rawcount2 = 0;
@@ -40,13 +51,33 @@ static const int NUM_CHANNELS = 4;
 static uint8_t nChannels[NUM_CHANNELS] = { 0, 100, 199, 209 };
 int8_t fOffset[NUM_CHANNELS] = {0xe4, 0xe3, 0xe2, 0xe2};
 
+void transmit_dexcom_package(int channelNumber);
+
 /*
 SCLK: D5
 MISO: D6
 MOSI: D7
 CSn : D8
 */
+#ifndef WEMOS
+
+#else
 const int GDO0_PIN = D0;     // the number of the GDO0_PIN pin
+#endif
+typedef struct _simple_package 
+{
+  uint8_t  pkt_length;
+  uint32_t dest_addr;
+  uint32_t src_addr;
+  uint8_t  port;
+  uint8_t  device_info;
+  uint8_t  txId;
+  uint16_t raw;
+  uint16_t filtered;
+  uint8_t  battery;
+  uint8_t  unknown;
+  uint8_t  checksum;
+} Simple_Package;
 
 CC2500 cc2500;
 
@@ -70,6 +101,21 @@ void setup()
 
 void loop()
 {
+  // Delay for predetermined amount of time
+  int startTime = millis();
+  while(millis() - startTime > SEND_INTERVAL);
+
+  for(int i = 0; i < CHANNEL_NUM; i++) {
+    // If this is not the first transmission, delay the next transmission
+    if (i > 0) {
+      int startTime = millis();
+      while(millis() - startTime > CHANNEL_INTERVAL); 
+    }
+
+    transmit_dexcom_package(i);
+    
+  }
+  /*
   int waitTime = RxData_RF();
 
   firstTime = false;
@@ -79,17 +125,50 @@ void loop()
   cc2500.SendStrobe(CC2500_CMD_SIDLE);
   while ((cc2500.ReadStatusReg(REG_MARCSTATE) & 0x1F) != 0x01) {};
   delay(50);
-  Serial.println("Wake");
+  Serial.println("Wake");*/
+}
+
+
+/**
+ * @brief Transmit a Dexcom packet
+ * 
+ * Transmit a packet that emulates a Dexcom G4 sensor. 
+ * Every packet will be the same. 
+ * 
+ * This function firsts resets the 
+ * 
+ * @param channelNumber 
+ */
+void transmit_dexcom_package(int channelNumber){
+  swap_channel(nChannels[channelNumber], fOffset[channelNumber]);
+
+  Simple_Package pkt;
+  pkt.pkt_length = 16;
+  pkt.dest_addr = 0xFFFFFFFF;
+  pkt.src_addr = 0x3A376300;
+  pkt.port = 0x3F;
+  pkt.device_info = 0x03;
+  pkt.txId = 0xD3;
+  
+  pkt.raw = 0x0F1D;
+  pkt.filtered = 0x2199;
+  pkt.battery = 0xD5;
+  pkt.unknown = 00;
+  pkt.checksum = 98;
+
+  cc2500.WriteBurstReg(CC2500_REG_TXFIFO, (unsigned char *) &pkt, sizeof(Simple_Package));
 }
 
 
 void swap_channel(uint8_t channel, uint8_t newFSCTRL0)
 {
+  cc2500.SendStrobe(CC2500_CMD_SIDLE);
+  
   cc2500.WriteReg(REG_CHANNR, channel);
   cc2500.WriteReg(REG_FSCTRL0, newFSCTRL0);
 
-  cc2500.SendStrobe(CC2500_CMD_SRX);
-  while ((cc2500.ReadStatusReg(REG_MARCSTATE) & 0x1F) != 0x0D) {};
+  cc2500.SendStrobe(CC2500_CMD_STX);
+  //while ((cc2500.ReadStatusReg(REG_MARCSTATE) & 0x1F) != 0x0D) {};
 }
 
 long RxData_RF(void)

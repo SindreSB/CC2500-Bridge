@@ -171,6 +171,8 @@ public:
 	
 	void ReadBurstReg(unsigned char addr, unsigned char *buffer, int count);
 
+  void WriteBurstReg(unsigned char addr, unsigned char *buffer, int count);
+
 	// For status/strobe addresses, the BURST bit selects between status registers
 	// and command strobes.
 	char ReadStatusReg(char addr);
