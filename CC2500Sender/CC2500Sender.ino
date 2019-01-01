@@ -9,11 +9,7 @@
 #include <stdio.h>
 #include <math.h>
 
-//#define WEMOS
-
-#ifdef WEMOS
 #include <ESP8266WiFi.h>
-#endif
 
 // Interval between each transmission sequence (ms)
 #define SEND_INTERVAL 10 * 1000 
@@ -49,7 +45,7 @@ uint8_t oldPacket[40];
 
 static const int NUM_CHANNELS = 4;
 static uint8_t nChannels[NUM_CHANNELS] = { 0, 100, 199, 209 };
-int8_t fOffset[NUM_CHANNELS] = {0xe4, 0xe3, 0xe2, 0xe2};
+static uint8_t fOffset[NUM_CHANNELS] = {0xe4, 0xe3, 0xe2, 0xe2};
 
 void transmit_dexcom_package(int channelNumber);
 
@@ -59,11 +55,8 @@ MISO: D6
 MOSI: D7
 CSn : D8
 */
-#ifndef WEMOS
-
-#else
 const int GDO0_PIN = D0;     // the number of the GDO0_PIN pin
-#endif
+
 typedef struct _simple_package 
 {
   uint8_t  pkt_length;
