@@ -55,7 +55,7 @@ void setup()
   delay(100);
   Serial.begin(9600);
   Serial.println("*************Restart");
-
+  
   Serial.printf("SS: %d\n", GDO0_PIN);
   
   
@@ -89,7 +89,13 @@ void swap_channel(uint8_t channel, uint8_t newFSCTRL0)
   cc2500.WriteReg(REG_FSCTRL0, newFSCTRL0);
 
   cc2500.SendStrobe(CC2500_CMD_SRX);
-  while ((cc2500.ReadStatusReg(REG_MARCSTATE) & 0x1F) != 0x0D) {};
+  while ((cc2500.ReadStatusReg(REG_MARCSTATE) & 0x0F) != 0x0D) {};
+}
+
+
+char state()
+{
+  return (cc2500.ReadStatusReg(REG_MARCSTATE) & 0x1F);
 }
 
 long RxData_RF(void)
@@ -120,11 +126,17 @@ long RxData_RF(void)
     //if delay is set, wait for a short time on each channel
     Serial.print("Delay:");
     Serial.println(Delay);
-    while (!digitalRead(GDO0_PIN) && (millis() - timeStart < Delay) || (!digitalRead(GDO0_PIN) && Delay == 0))
+    while (!(state() != 0x01) && (millis() - timeStart < Delay) || ((state() != 0x01)  && Delay == 0)) // Instead of reading GDO0 we pull the state. 
     {
       delay(1);
     }
-    if (digitalRead(GDO0_PIN)) {
+
+    // Read bytes available in 
+    char bytes_in_rx = cc2500.ReadStatusReg(CC2500_REG_RXBYTES) & 0x7F;
+    char bytes_to_read_state = cc2500.SendStrobe(CC2500_CMD_SNOP | CC2500_OFF_READ_SINGLE) & 0x07;
+    Serial.printf("Bytes in rx: %d, and status: %d\n", bytes_in_rx, bytes_to_read_state);
+    
+    if (bytes_in_rx > 0 && bytes_to_read_state > 0){
       Serial.println("Got packet");
       PacketLength = cc2500.ReadReg(CC2500_REG_RXFIFO);
       //

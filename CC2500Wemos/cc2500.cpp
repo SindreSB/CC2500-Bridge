@@ -21,6 +21,9 @@
  *
  *  \internal
  *    Created: 21-09-2012
+ *    
+ *   Forked from:
+ *   https://github.com/brownedon/CC2500-Project/blob/master/CC2500.cpp
  */
  
 #include "CC2500.h"
