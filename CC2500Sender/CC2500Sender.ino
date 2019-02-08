@@ -16,7 +16,7 @@
 // Interval between transmissions of different channels (ms)
 #define CHANNEL_INTERVAL 100
 // How many channels to use
-#define CHANNEL_NUM 4
+#define CHANNEL_NUM 1
 
 long rawcount1 = 0;
 long rawcount2 = 0;
@@ -78,16 +78,16 @@ void setup()
 {
   delay(100);
   Serial.begin(9600);
-  Serial.println("*************Restart");
+  Serial.println("*************Restart****************");
 
-  Serial.printf("SS: %d\n", GDO0_PIN);
+  Serial.printf("GDO0: %d\n", GDO0_PIN);
   
   
   pinMode(GDO0_PIN, INPUT);
   cc2500.init();
 
-  Serial.print("Version: ");
-  Serial.println((int) cc2500.ReadStatusReg(REG_VERSION));
+  u8_t version = cc2500.ReadStatusReg(REG_VERSION);
+  Serial.printf("Version: 0x%02X (should be 0x03)\n", version);
   
   memset(&packet, 0, sizeof(packet));
 }
@@ -99,12 +99,13 @@ void loop()
   while(millis() - startTime > SEND_INTERVAL);
 
   for(int i = 0; i < CHANNEL_NUM; i++) {
+    Serial.println("Starting new transmission burst");
     // If this is not the first transmission, delay the next transmission
     if (i > 0) {
       int startTime = millis();
-      while(millis() - startTime > CHANNEL_INTERVAL); 
+      while((millis() - startTime) > CHANNEL_INTERVAL); 
     }
-
+    Serial.printf("Transmitting on channel %d\n", i); 
     transmit_dexcom_package(i);
     
   }
@@ -136,7 +137,7 @@ void transmit_dexcom_package(int channelNumber){
   swap_channel(nChannels[channelNumber], fOffset[channelNumber]);
 
   Simple_Package pkt;
-  pkt.pkt_length = 16;
+  pkt.pkt_length = 18;
   pkt.dest_addr = 0xFFFFFFFF;
   pkt.src_addr = 0x3A376300;
   pkt.port = 0x3F;
@@ -149,7 +150,26 @@ void transmit_dexcom_package(int channelNumber){
   pkt.unknown = 00;
   pkt.checksum = 98;
 
-  cc2500.WriteBurstReg(CC2500_REG_TXFIFO, (unsigned char *) &pkt, sizeof(Simple_Package));
+  // Print out what will be written to tx fifo:
+  u8_t *pkt_ptr = (u8_t*)&pkt;
+  Serial.print("Data written to TX: ");
+  for(size_t i = 0; i < sizeof(Simple_Package); i++)
+  {
+    Serial.printf("%02X ", pkt_ptr[i]);
+  }
+  Serial.print("\n");
+  
+  cc2500.WriteBurstReg(CC2500_REG_TXFIFO, (u8_t*) &pkt, sizeof(Simple_Package));
+
+  cc2500.SendStrobe(CC2500_CMD_STX);
+
+  // CC2500 should go back into IDLE after TX is complete,
+  // and we'll just pull the status until that happens
+  u8_t timeout = 100U;
+  while (((cc2500.ReadStatusReg(REG_MARCSTATE) & 0x0F) != 0x01) && timeout > 0) {
+    delay(100); 
+    timeout--;
+  };
 }
 
 
@@ -160,7 +180,6 @@ void swap_channel(uint8_t channel, uint8_t newFSCTRL0)
   cc2500.WriteReg(REG_CHANNR, channel);
   cc2500.WriteReg(REG_FSCTRL0, newFSCTRL0);
 
-  cc2500.SendStrobe(CC2500_CMD_STX);
   //while ((cc2500.ReadStatusReg(REG_MARCSTATE) & 0x1F) != 0x0D) {};
 }
 
